@@ -29,7 +29,7 @@ typedef enum
 
 typedef enum
 {
-    STATICSPLASH,
+    STATICSPLASH = 0,
     CLOSEIN,
     CLOSEINCUSTOM,
     NOSPLASH,

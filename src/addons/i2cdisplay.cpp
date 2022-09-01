@@ -31,9 +31,22 @@ void I2CDisplayAddon::setup() {
 	obdSetContrast(&obd, 0xFF);
 	obdSetBackBuffer(&obd, ucBackBuffer);
 	clearScreen(1);
+	//State setups
+	//splashState.obd = &obd;
+	setState(&splashState);
 }
 
 void I2CDisplayAddon::process() {
+	if(state->process(this))
+	{
+		setState(nextState);
+	} else {
+
+	}
+}
+
+/*
+void I2CDisplayAddon::DisplayState::process()
 	clearScreen(0);
 	bool configMode = Storage::getInstance().GetConfigMode();
 	if (configMode == true ) {
@@ -41,7 +54,8 @@ void I2CDisplayAddon::process() {
 		drawText(0, 3, "[Web Config Mode]");
 		drawText(0, 4, std::string("GP2040-CE : ") + std::string(GP2040VERSION));
 	} else if (getMillis() < 7500 && SPLASH_MODE != NOSPLASH) {
-		drawSplashScreen(SPLASH_MODE, 90);
+	state->process();
+	//	drawSplashScreen(SPLASH_MODE, 90);
 	} else {
 		drawStatusBar();
 		switch (BUTTON_LAYOUT)
@@ -110,7 +124,7 @@ void I2CDisplayAddon::process() {
 	}
 
 	obdDumpBuffer(&obd, NULL);
-}
+}*/
 
 void I2CDisplayAddon::clearScreen(int render) {
 	obdFill(&obd, 0, render);
@@ -416,36 +430,65 @@ void I2CDisplayAddon::drawDancepadB(int startX, int startY, int buttonSize, int 
 	obdRectangle(&obd, startX + buttonMargin * 2, startY + buttonMargin * 2, startX + buttonSize + buttonMargin * 2, startY + buttonSize + buttonMargin * 2, 1, gamepad->pressedB3()); // Down/Right
 }
 
-void I2CDisplayAddon::drawSplashScreen(int splashMode, int splashSpeed)
+void I2CDisplayAddon::setState(State *ptr)
+//void I2CDisplayAddon::setState(SplashState *ptr)
 {
-    int mils = getMillis();
+    //state->exit(); // Exit current state
+    ptr->enter(); // Enter/Setup new state
+	state = ptr; // Make new state active
+}
+
+void I2CDisplayAddon::SplashState::enter()
+{
+	startMils = getMillis();
+}
+//void I2CDisplayAddon::drawSplashScreen(int splashMode, int splashSpeed)
+bool I2CDisplayAddon::SplashState::process(I2CDisplayAddon *st)
+{
+    const int mils = getMillis();
+	const int milsPast = mils - startMils;
+	st->clearScreen(0);
     switch (splashMode)
 	{
 		case STATICSPLASH: // Default, display static or custom image
             if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
-                obdDrawSprite(&obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
+                obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
             } else {
-			    obdDrawSprite(&obd, (uint8_t *)splashImage, 128, 64, 16, 0, 0, 1);
+			    obdDrawSprite(&st->obd, (uint8_t *)splashImage, 128, 64, 16, 0, 0, 1);
             }
 			break;
 		case CLOSEIN: // Close-in. Animate the GP2040 logo
-			obdDrawSprite(&obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((mils / splashSpeed) - 39, 0), 1);
-			obdDrawSprite(&obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (mils / (splashSpeed * 2)), 44), 1);
+			obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milsPast / splashSpeed) - 39, 0), 1);
+			obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milsPast / (splashSpeed * 2)), 44), 1);
 			break;
         case CLOSEINCUSTOM: // Close-in on custom image or delayed close-in if custom image does not exist
             if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
-               obdDrawSprite(&obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
+               obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
             }
-            if (mils > 2500) {
-                int milss = mils - 2500;
-                obdRectangle(&obd, 0, 0, 127, 1 + (milss / splashSpeed), 0, 1);
-                obdRectangle(&obd, 0, 63, 127, 62 - (milss / (splashSpeed * 2)), 0, 1);
-                obdDrawSprite(&obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milss / splashSpeed) - 39, 0), 1);
-                obdDrawSprite(&obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milss / (splashSpeed * 2)), 44), 1);
+            if (milsPast > 2500) {
+                int milss = milsPast - 2500;
+                obdRectangle(&st->obd, 0, 0, 127, 1 + (milss / splashSpeed), 0, 1);
+                obdRectangle(&st->obd, 0, 63, 127, 62 - (milss / (splashSpeed * 2)), 0, 1);
+                obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milss / splashSpeed) - 39, 0), 1);
+                obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milss / (splashSpeed * 2)), 44), 1);
             }
             break;
 	}
+	st->drawText(0,0, std::to_string(mils));
+	st->drawText(0,1, std::to_string(startMils));
+	st->drawText(0,2, std::to_string(milsPast));
+	st->drawText(0,3, std::to_string(stopMils));
+	obdDumpBuffer(&st->obd, NULL);
+	if (milsPast > stopMils) {
+		st->drawText(0,4, "STOP");
+		st->nextState = &st->splashState; 
+		return 1;
+	} else {
+		return 0;
+	}
 }
+
+void I2CDisplayAddon::SplashState::exit() {}
 
 void I2CDisplayAddon::drawText(int x, int y, std::string text) {
 	obdWriteString(&obd, 0, x, y, (char*)text.c_str(), FONT_6x8, 0, 0);

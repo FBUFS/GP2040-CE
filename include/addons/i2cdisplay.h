@@ -86,12 +86,38 @@ public:
 	void drawSticklessButtons(int startX, int startY, int buttonRadius, int buttonPadding);
 	void drawWasdButtons(int startX, int startY, int buttonRadius, int buttonPadding);
 	void drawArcadeButtons(int startX, int startY, int buttonRadius, int buttonPadding);
-	void drawSplashScreen(int splashMode, int splashSpeed);
+	//void drawSplashScreen(int splashMode, int splashSpeed);
 	void drawDancepadA(int startX, int startY, int buttonSize, int buttonPadding);
 	void drawDancepadB(int startX, int startY, int buttonSize, int buttonPadding);
 	uint8_t ucBackBuffer[1024];
 	OBDISP obd;
 	std::string statusBar;
+	// State Engine
+	class State
+	{
+	public:
+		virtual void enter() = 0;
+		virtual bool process(I2CDisplayAddon*) = 0;
+    	virtual void exit() = 0;
+	};
+	class SplashState : public State
+	{
+	public:
+		void enter();
+		bool process(I2CDisplayAddon*);
+    	void exit();
+	//private:
+		int splashMode = 1;// = SPLASH_MODE;
+		int splashSpeed = 90;
+		//OBDISP *obd;
+		int startMils;
+		int stopMils = 7500;
+		//I2CDisplayAddon *parent;
+	} splashState;
+
+	State *state;
+	State *nextState;
+	void setState(State*);
 };
 
 #endif
