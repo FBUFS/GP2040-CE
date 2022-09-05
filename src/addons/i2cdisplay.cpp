@@ -36,13 +36,18 @@ void I2CDisplayAddon::setup() {
 	setState(&splashState);
 }
 
-void I2CDisplayAddon::process() {
+void I2CDisplayAddon::process()
+{
+	// Calc DT now
+	int millis = getMillis();
+	dt = millis - ldt;
+	ldt = millis;
+	// Process active state, switch if asked to
 	if(state->process(this))
 	{
 		setState(nextState);
-	} else {
-
 	}
+	
 }
 
 /*
@@ -434,13 +439,15 @@ void I2CDisplayAddon::setState(State *ptr)
 //void I2CDisplayAddon::setState(SplashState *ptr)
 {
     //state->exit(); // Exit current state
-    ptr->enter(); // Enter/Setup new state
+    ptr->enter(this); // Enter/Setup new state
 	state = ptr; // Make new state active
 }
 
-void I2CDisplayAddon::SplashState::enter()
+void I2CDisplayAddon::SplashState::enter(I2CDisplayAddon* st)
 {
+	std::string msgText { "Entered Splash State" };
 	startMils = getMillis();
+	st->messageState.send(msgText);
 }
 //void I2CDisplayAddon::drawSplashScreen(int splashMode, int splashSpeed)
 bool I2CDisplayAddon::SplashState::process(I2CDisplayAddon *st)
@@ -474,10 +481,45 @@ bool I2CDisplayAddon::SplashState::process(I2CDisplayAddon *st)
             }
             break;
 	}
+	/*
 	st->drawText(0,0, std::to_string(mils));
 	st->drawText(0,1, std::to_string(startMils));
 	st->drawText(0,2, std::to_string(milsPast));
 	st->drawText(0,3, std::to_string(stopMils));
+	*/
+
+	//Message Center Temp Stuff
+	/*
+	//obdScrollBuffer(&st->msgobd,0,0,1,8,1);
+	//obdDumpWindow(&st->msgobd, &st->obd, 0, 0, 0, st->msgy, 32, 12);
+	//obdDumpWindow(&st->msgobd, &st->obd, 0, ++st->msgy, 64, 16, 32, 4);
+	//obdDrawGFX(&st->obd, &st->msgobd, 0, 0, 1, 1, 32, 4, 0);
+	//obdDrawSprite(&st->obd, st->ucMsgBackBuffer, 128, 32, 1, 0, 0, 1);
+	obdCopy(&st->msgobd, 2, st->ucHold);
+	obdDrawSprite(&st->obd, st->ucHold, 128, 32, 16, 0, st->msgy, 1);
+	st->drawText(0,5, std::to_string(st->msgy));
+	st->drawText(0,6, std::to_string(st->msghalt));
+	//++st->msgx;
+	//++st->msgy;
+	if (st->msghalt > 50)
+	{
+		if (st->msgy > 16) st->msgy = 0;
+		++st->msgy;
+		st->msghalt = 0;
+	}
+	++st->msghalt;
+	//if (st->msgy > 16) st->msgy = 0;
+
+	//End it
+	*/
+
+
+	// Process message queue
+	st->messageState.process(st);
+
+	//Drop DT
+	st->drawText(0,0, std::to_string(st->dt));
+
 	obdDumpBuffer(&st->obd, NULL);
 	if (milsPast > stopMils) {
 		st->drawText(0,4, "STOP");
@@ -534,3 +576,91 @@ void I2CDisplayAddon::drawStatusBar()
 	}
 	drawText(0, 0, statusBar);
 }
+
+I2CDisplayAddon::MessageState::MessageState()
+{
+	obdCreateVirtualDisplay(&obd, 128,32, ucBackBuffer);
+}
+
+void I2CDisplayAddon::MessageState::enter(I2CDisplayAddon*)
+{
+
+}
+bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
+{
+	if (queue.size() > 0)
+	{	
+		uint8_t bitmap[1024];
+		std::string text = queue.at(0);
+		if (counter <= 0)
+		{
+			counter = ttl;
+			++step;
+		}
+		switch (step)
+		{
+			case 1:
+				counter = counter - st->dt;
+				y = height * ( counter / ttl );
+				break;
+			case 2:
+				counter = counter - st->dt;
+				break;
+			case 3:
+				counter = counter - st->dt;
+				y = height - height * ( counter / ttl );
+				break;
+			case 4:
+				step = 0;
+				counter = 0;
+				queue.erase(queue.begin());
+				break;
+		}
+		//obdWriteString(&st->obd, 0, 0, 1, (char*)std::to_string(y).c_str(), FONT_6x8, 0, 0);
+		//obdWriteString(&st->obd, 0, 0, 2, (char*)std::to_string(t).c_str(), FONT_6x8, 0, 0);
+		//obdWriteString(&st->obd, 0, 0, 3, (char*)std::to_string(counter).c_str(), FONT_6x8, 0, 0);
+		//obdWriteString(&st->obd, 0, 0, 3, (char*)std::to_string(step).c_str(), FONT_6x8, 0, 0);
+
+		// This looks like it's expensive, so don't do this often.
+		// obdDumpWindow doesn't work as described so we're copying the virtual display to a bitmap.
+		obdDrawLine(&st->obd, 0, sy + y, 127, sy + y, 1, 0);
+		obdRectangle(&st->obd, 0, sy + y + 1, 127, 63, 0, 1);
+		obdWriteString(&obd, 0, 0, 0, (char*)text.c_str(), FONT_6x8, 0, 0);
+		obdCopy(&obd, 2, bitmap);
+		obdDrawSprite(&st->obd, bitmap, 128, 32, 16, 0, sy + y + 2, 1);
+	}
+	return 0;
+}
+void I2CDisplayAddon::MessageState::exit()
+{
+
+}
+void I2CDisplayAddon::MessageState::send(std::string str)
+{
+	queue.push_back(str);
+}
+
+//Message Center Temp Stuff
+	/*
+	//obdScrollBuffer(&st->msgobd,0,0,1,8,1);
+	//obdDumpWindow(&st->msgobd, &st->obd, 0, 0, 0, st->msgy, 32, 12);
+	//obdDumpWindow(&st->msgobd, &st->obd, 0, ++st->msgy, 64, 16, 32, 4);
+	//obdDrawGFX(&st->obd, &st->msgobd, 0, 0, 1, 1, 32, 4, 0);
+	//obdDrawSprite(&st->obd, st->ucMsgBackBuffer, 128, 32, 1, 0, 0, 1);
+	obdCopy(&st->msgobd, 2, st->ucHold);
+	obdDrawSprite(&st->obd, st->ucHold, 128, 32, 16, 0, st->msgy, 1);
+	st->drawText(0,5, std::to_string(st->msgy));
+	st->drawText(0,6, std::to_string(st->msghalt));
+	//++st->msgx;
+	//++st->msgy;
+	if (st->msghalt > 50)
+	{
+		if (st->msgy > 16) st->msgy = 0;
+		++st->msgy;
+		st->msghalt = 0;
+	}
+	++st->msghalt;
+	//if (st->msgy > 16) st->msgy = 0;
+
+	//End it
+	*/

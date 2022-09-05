@@ -12,6 +12,7 @@
 #include "BoardConfig.h"
 #include "gpaddon.h"
 #include "gamepad.h"
+#include <vector>
 
 #ifndef HAS_I2C_DISPLAY
 #define HAS_I2C_DISPLAY -1
@@ -96,14 +97,14 @@ public:
 	class State
 	{
 	public:
-		virtual void enter() = 0;
+		virtual void enter(I2CDisplayAddon*) = 0;
 		virtual bool process(I2CDisplayAddon*) = 0;
     	virtual void exit() = 0;
 	};
 	class SplashState : public State
 	{
 	public:
-		void enter();
+		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
     	void exit();
 	//private:
@@ -114,10 +115,41 @@ public:
 		int stopMils = 7500;
 		//I2CDisplayAddon *parent;
 	} splashState;
+	class MessageState : public State
+	{
+	public:
+		MessageState();
+		void enter(I2CDisplayAddon*);
+		bool process(I2CDisplayAddon*);
+		void exit();
+		void send(std::string);
+		//void pop();
+	private:
+		double counter { 0 };
+		const double height { 11 };
+		const double ttl { 1000 }; // This is actually x3
+		int step { 0 };
+		int y { 54 };
+		const int sy { 53 };
+		int t { 54 };
+		std::vector<std::string> queue;
+		uint8_t ucBackBuffer[1024];
+		//uint8_t ucHold[1024];
+		OBDISP obd;
+	} messageState;
 
 	State *state;
 	State *nextState;
 	void setState(State*);
+
+	//Message Center
+	int msgx { 0 };
+	int msgy { 0 };
+	int msghalt { 0 };
+
+	//Delta time
+	uint32_t dt { 0 };
+	uint32_t ldt { getMillis() };
 };
 
 #endif
