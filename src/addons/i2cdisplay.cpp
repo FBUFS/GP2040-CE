@@ -668,7 +668,7 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 		// obdDumpWindow doesn't work as described so we're copying the virtual display to a bitmap.
 		// Part of this can be moved to send(), we can push a vector of std::array<uint*_t, 1024> and store the bitmaps there.
 		obdDrawLine(&st->obd, 0, sy + y, 127, sy + y, 1, 0); // This
-		obdRectangle(&st->obd, 0, sy + y + 1, 127, 63, 0, 1); // And this need to go to the main buffer as draw sprite will not clear pixels.
+		obdRectangle(&st->obd, 0, sy + y + 1, 127, 63, 0, 1); // And this need to go to the main buffer as obdDrawSprite will not clear pixels.
 		//obdWriteString(&obd, 0, 0, 0, (char*)text.c_str(), FONT_6x8, 0, 0);
 		//obdCopy(&obd, 2, bitmap);
 		obdDrawSprite(&st->obd, queue.at(0), 128, 32, 16, 0, sy + y + 2, 1);
@@ -684,6 +684,8 @@ void I2CDisplayAddon::MessageState::exit()
 void I2CDisplayAddon::MessageState::send(std::string str)
 {
 	uint8_t bitmap[1024];
+	// This looks like it's expensive, so don't do this often.
+	// obdDumpWindow doesn't work as described so we're copying the virtual display to a bitmap.
 	obdWriteString(&obd, 0, 0, 0, (char*)str.c_str(), FONT_6x8, 0, 0);
 	obdCopy(&obd, 2, bitmap);
 	queue.push_back(bitmap);
