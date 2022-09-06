@@ -115,7 +115,7 @@ public:
 		double counter { 0 };
 		int y { 0 };
 		int y2 { 64 };
-		const double ttl { 2000 }; // x2
+		const double ttl { 3750 }; // x2
 	};
 	class DisplayState : public State
 	{
