@@ -134,7 +134,7 @@ public:
 	{
 	public:
 		MessageState();
-		~MessageState();
+		~MessageState() {}
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
 		void exit();
