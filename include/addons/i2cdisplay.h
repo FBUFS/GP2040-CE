@@ -94,40 +94,47 @@ public:
 	OBDISP obd;
 	std::string statusBar;
 	// State Engine
+	//TODO: Clean this up! OMG UGLY!
 	class State
 	{
 	public:
+		State() {}
+		virtual ~State() {}
 		virtual void enter(I2CDisplayAddon*) = 0;
 		virtual bool process(I2CDisplayAddon*) = 0;
     	virtual void exit() = 0;
-	};
+	}; //TODO: Can we setup these classes outside of the addon class?
 	class CloseinSplashState : public State
 	{
 	public:
 		CloseinSplashState() {}
+		~CloseinSplashState() {}
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
     	void exit();
 	private:
-		int splashSpeed = 90;
-		int startMils;
-		int stopMils = 7500;
+		int splashSpeed = 90; //TODO: Remove
+		int startMils; //TODO: Remove
+		int stopMils = 7500; //TODO: Remove
 		double counter { 0 };
 		int y { 0 };
 		int y2 { 64 };
-		const double ttl { 3750 }; // x2
+		const double ttl { 3750 }; // x2 //TODO: This shouldn't be x2
 	};
 	class DisplayState : public State
 	{
 	public:
+		DisplayState() {}
+		~DisplayState() {}
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
     	void exit();
-	} displayState;
+	} displayState; //TODO: Does not need to be static. new/delete code needed.
 	class MessageState : public State
 	{
 	public:
 		MessageState();
+		~MessageState();
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
 		void exit();
@@ -135,7 +142,7 @@ public:
 	private:
 		double counter { 0 };
 		const double height { 11 };
-		const double ttl { 1000 }; // This is actually x3
+		const double ttl { 1000 }; // This is actually x3 //TODO: This shouldn't be x3
 		int step { 0 };
 		int y { 54 };
 		const int sy { 53 };
@@ -143,13 +150,14 @@ public:
 		std::vector<std::string> queue;
 		uint8_t ucBackBuffer[1024];
 		OBDISP obd;
-	} messageState;
+	} messageState; //MessageState needs to always be active and will not be swapped like the other display states.
 
 	State *state;
-	State *nextState;
+	State *nextState; //TODO: We don't need the extra pointer, fix after we fix the static states.
 	void setState(State*, bool);
 
 	//Message Center
+	//Todo: Is this needed still?
 	int msgx { 0 };
 	int msgy { 0 };
 	int msghalt { 0 };

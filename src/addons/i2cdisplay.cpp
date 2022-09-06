@@ -17,7 +17,8 @@ bool I2CDisplayAddon::available() {
 
 void I2CDisplayAddon::setup() {
 	BoardOptions boardOptions = Storage::getInstance().getBoardOptions();
-	obdI2CInit(&obd,
+	obdI2CInit(
+		&obd,
 	    boardOptions.displaySize,
 		boardOptions.displayI2CAddress,
 		boardOptions.displayFlip,
@@ -34,7 +35,7 @@ void I2CDisplayAddon::setup() {
 	//State setups
 	
 	// Setup splash mode
-	switch (1)
+	switch (1) //TODO: Enum broke here. Fix it!
 	{
 		case STATICSPLASH: // Default, display static or custom image
             //setState(new StaticSplashState(), 0);
@@ -46,20 +47,20 @@ void I2CDisplayAddon::setup() {
             //setState(new CloseinCustomSplashState(), 0);
             break;
 		default:
-			setState(&displayState, 0);
+			setState(&displayState, 0); //TODO: This should be new DisplayState()
 	}
 	
 }
 
 void I2CDisplayAddon::process()
 {
-	// Calc DT now, should be a method.
+	// Calc DT now, should be a method. //TODO: Make this a method.
 	int millis = getMillis();
 	dt = millis - ldt;
 	ldt = millis;
 	
 	// Process active state, switch if asked to
-	if (state->process(this)) setState(nextState, 1);
+	if (state->process(this)) setState(nextState, 1); //TODO: Can we pass a pointer as a result without making messy code?
 	
 	// Process message queue
 	messageState.process(this);
@@ -67,7 +68,7 @@ void I2CDisplayAddon::process()
 	//Drop DeltaTime
 	drawText(0,1, std::to_string(dt));
 
-	obdDumpBuffer(&obd, NULL);
+	obdDumpBuffer(&obd, NULL); //TODO: This needs to by skipped if we're in timeout/power save, but it's easier to have it here.
 
 }
 
@@ -81,13 +82,13 @@ bool I2CDisplayAddon::DisplayState::process(I2CDisplayAddon* st)
 {
 	st->clearScreen(0);
 	bool configMode = Storage::getInstance().GetConfigMode();
-	if (configMode == true ) {
+	if (configMode == true ) { // TODO: Move this to it's own state
 		st->drawStatusBar();
 		st->drawText(0, 3, "[Web Config Mode]");
 		st->drawText(0, 4, std::string("GP2040-CE : ") + std::string(GP2040VERSION));
 	} else {
 		st->drawStatusBar();
-		switch (BUTTON_LAYOUT)
+		switch (BUTTON_LAYOUT) // TODO: Each of these should be set in enter() and this should be a pointer
 		{
 			case BUTTON_LAYOUT_STICK:
 				st->drawArcadeStick(8, 28, 8, 2);
@@ -154,13 +155,17 @@ bool I2CDisplayAddon::DisplayState::process(I2CDisplayAddon* st)
 
 	//obdDumpBuffer(&st->obd, NULL);
 
-	return 0;
+	return 0; // TODO: There is no state change mechanic here
 }
 
 
-void I2CDisplayAddon::DisplayState::exit() {}
+void I2CDisplayAddon::DisplayState::exit()
+{
+	//TODO delete this;
+}
 
-void I2CDisplayAddon::clearScreen(int render) {
+void I2CDisplayAddon::clearScreen(int render) //TODO: We need to include a refernce to obd so we can fill virtual displays too.
+{
 	obdFill(&obd, 0, render);
 }
 
@@ -180,6 +185,7 @@ void I2CDisplayAddon::drawDiamond(int cx, int cy, int size, uint8_t colour, uint
 	obdDrawLine(&obd, cx, cy + size, cx - size, cy, colour, 0);
 }
 
+// TODO: All of these should be objects 
 void I2CDisplayAddon::drawStickless(int startX, int startY, int buttonRadius, int buttonPadding)
 {
 	Gamepad * gamepad = Storage::getInstance().GetGamepad();
@@ -464,7 +470,7 @@ void I2CDisplayAddon::drawDancepadB(int startX, int startY, int buttonSize, int 
 	obdRectangle(&obd, startX + buttonMargin * 2, startY + buttonMargin * 2, startX + buttonSize + buttonMargin * 2, startY + buttonSize + buttonMargin * 2, 1, gamepad->pressedB3()); // Down/Right
 }
 
-void I2CDisplayAddon::setState(State* ptr, bool runExit)
+void I2CDisplayAddon::setState(State* ptr, bool runExit) // TODO: runExit should have a default, but it wasn't working as expected.
 {
     if (runExit == 1) state->exit(); // Exit current state
     ptr->enter(this); // Enter/Setup new state
@@ -475,7 +481,7 @@ void I2CDisplayAddon::setState(State* ptr, bool runExit)
 
 void I2CDisplayAddon::CloseinSplashState::enter(I2CDisplayAddon* st)
 {
-	startMils = getMillis();
+	startMils = getMillis(); //TODO: Remove this
 	std::string msgText { "Entered Splash State" };
 	st->messageState.send(msgText);
 }
@@ -494,7 +500,7 @@ bool I2CDisplayAddon::CloseinSplashState::process(I2CDisplayAddon *st)
 	obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, 64 - y2, 1);
 
 	if (counter > (ttl * 2)) {
-		st->nextState = &st->displayState; 
+		st->nextState = &st->displayState; //TODO: This shouldn't be static.
 		return 1;
 	} else {
 		return 0;
@@ -502,10 +508,11 @@ bool I2CDisplayAddon::CloseinSplashState::process(I2CDisplayAddon *st)
 }
 
 void I2CDisplayAddon::CloseinSplashState::exit() {
-	delete this;
+	delete this; //TODO: Confirm this is the right way to do this
 }
 
 /*
+//TODO: Finish converting these to objects
 void I2CDisplayAddon::StaticSplashState::enter(I2CDisplayAddon* st)
 {
 	startMils = getMillis();
@@ -570,12 +577,14 @@ bool I2CDisplayAddon::CloseinCustomSplashState::process(I2CDisplayAddon *st)
 void I2CDisplayAddon::CloseinCustomSplashState::exit() {}
 */
 
-void I2CDisplayAddon::drawText(int x, int y, std::string text) {
+void I2CDisplayAddon::drawText(int x, int y, std::string text) // TODO: This needs a reference to the obd object
+{
 	obdWriteString(&obd, 0, x, y, (char*)text.c_str(), FONT_6x8, 0, 0);
 }
 
 void I2CDisplayAddon::drawStatusBar()
 {
+	//TODO: Pull these from addon object instead of pulling each time. This is expensive.
 	Gamepad * gamepad = Storage::getInstance().GetGamepad();
 	BoardOptions boardOptions = Storage::getInstance().getBoardOptions();
 
@@ -635,7 +644,7 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 			counter = ttl;
 			++step;
 		}
-		switch (step)
+		switch (step) //TODO: Don't do this!
 		{
 			case 1:
 				counter = counter - st->dt;
@@ -654,10 +663,6 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 				queue.erase(queue.begin());
 				break;
 		}
-		//obdWriteString(&st->obd, 0, 0, 1, (char*)std::to_string(y).c_str(), FONT_6x8, 0, 0);
-		//obdWriteString(&st->obd, 0, 0, 2, (char*)std::to_string(t).c_str(), FONT_6x8, 0, 0);
-		//obdWriteString(&st->obd, 0, 0, 3, (char*)std::to_string(counter).c_str(), FONT_6x8, 0, 0);
-		//obdWriteString(&st->obd, 0, 0, 3, (char*)std::to_string(step).c_str(), FONT_6x8, 0, 0);
 
 		// This looks like it's expensive, so don't do this often.
 		// obdDumpWindow doesn't work as described so we're copying the virtual display to a bitmap.
