@@ -32,104 +32,133 @@ void I2CDisplayAddon::setup() {
 	obdSetBackBuffer(&obd, ucBackBuffer);
 	clearScreen(1);
 	//State setups
-	//splashState.obd = &obd;
-	setState(&splashState);
-}
-
-void I2CDisplayAddon::process()
-{
-	// Calc DT now
-	int millis = getMillis();
-	dt = millis - ldt;
-	ldt = millis;
-	// Process active state, switch if asked to
-	if(state->process(this))
+	
+	// Setup splash mode
+	switch (1)
 	{
-		setState(nextState);
+		case STATICSPLASH: // Default, display static or custom image
+            //setState(new StaticSplashState(), 0);
+			break;
+		case CLOSEIN: // Close-in. Animate the GP2040 logo
+			setState(new CloseinSplashState(), 0);
+			break;
+        case CLOSEINCUSTOM: // Close-in on custom image or delayed close-in if custom image does not exist
+            //setState(new CloseinCustomSplashState(), 0);
+            break;
+		default:
+			setState(&displayState, 0);
 	}
 	
 }
 
-/*
-void I2CDisplayAddon::DisplayState::process()
-	clearScreen(0);
+void I2CDisplayAddon::process()
+{
+	// Calc DT now, should be a method.
+	int millis = getMillis();
+	dt = millis - ldt;
+	ldt = millis;
+	
+	// Process active state, switch if asked to
+	if (state->process(this)) setState(nextState, 1);
+	
+	// Process message queue
+	messageState.process(this);
+
+	//Drop DeltaTime
+	drawText(0,1, std::to_string(dt));
+
+	obdDumpBuffer(&obd, NULL);
+
+}
+
+
+void I2CDisplayAddon::DisplayState::enter(I2CDisplayAddon* st) {
+	std::string msgText { "Entered Display State" };
+	st->messageState.send(msgText);
+}
+
+bool I2CDisplayAddon::DisplayState::process(I2CDisplayAddon* st)
+{
+	st->clearScreen(0);
 	bool configMode = Storage::getInstance().GetConfigMode();
 	if (configMode == true ) {
-		drawStatusBar();
-		drawText(0, 3, "[Web Config Mode]");
-		drawText(0, 4, std::string("GP2040-CE : ") + std::string(GP2040VERSION));
-	} else if (getMillis() < 7500 && SPLASH_MODE != NOSPLASH) {
-	state->process();
-	//	drawSplashScreen(SPLASH_MODE, 90);
+		st->drawStatusBar();
+		st->drawText(0, 3, "[Web Config Mode]");
+		st->drawText(0, 4, std::string("GP2040-CE : ") + std::string(GP2040VERSION));
 	} else {
-		drawStatusBar();
+		st->drawStatusBar();
 		switch (BUTTON_LAYOUT)
 		{
 			case BUTTON_LAYOUT_STICK:
-				drawArcadeStick(8, 28, 8, 2);
+				st->drawArcadeStick(8, 28, 8, 2);
 				break;
 
 			case BUTTON_LAYOUT_STICKLESS:
-				drawStickless(8, 20, 8, 2);
+				st->drawStickless(8, 20, 8, 2);
 				break;
 
 			case BUTTON_LAYOUT_BUTTONS_ANGLED:
-				drawWasdBox(8, 28, 7, 3);
+				st->drawWasdBox(8, 28, 7, 3);
 				break;
 			case BUTTON_LAYOUT_BUTTONS_BASIC:
-				drawUDLR(8, 28, 8, 2);
+				st->drawUDLR(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_KEYBOARD_ANGLED:
-				drawKeyboardAngled(18, 28, 5, 2);
+				st->drawKeyboardAngled(18, 28, 5, 2);
 				break;
 			case BUTTON_LAYOUT_KEYBOARDA:
-				drawMAMEA(8, 28, 10, 1);
+				st->drawMAMEA(8, 28, 10, 1);
 				break;
 			case BUTTON_LAYOUT_DANCEPADA:
-				drawDancepadA(39, 12, 15, 2);
+				st->drawDancepadA(39, 12, 15, 2);
 				break;
 		}
 
 		switch (BUTTON_LAYOUT_RIGHT)
 		{
 			case BUTTON_LAYOUT_ARCADE:
-				drawArcadeButtons(8, 28, 8, 2);
+				st->drawArcadeButtons(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_STICKLESSB:
-				drawSticklessButtons(8, 20, 8, 2);
+				st->drawSticklessButtons(8, 20, 8, 2);
 				break;
 			case BUTTON_LAYOUT_BUTTONS_ANGLEDB:
-				drawWasdButtons(8, 28, 7, 3);
+				st->drawWasdButtons(8, 28, 7, 3);
 				break;
 			case BUTTON_LAYOUT_VEWLIX:
-				drawVewlix(8, 28, 8, 2);
+				st->drawVewlix(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_VEWLIX7:
-				drawVewlix7(8, 28, 8, 2);
+				st->drawVewlix7(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_CAPCOM:
-				drawCapcom(6, 28, 8, 2);
+				st->drawCapcom(6, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_CAPCOM6:
-				drawCapcom6(16, 28, 8, 2);
+				st->drawCapcom6(16, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_SEGA2P:
-				drawSega2p(8, 28, 8, 2);
+				st->drawSega2p(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_NOIR8:
-				drawNoir8(8, 28, 8, 2);
+				st->drawNoir8(8, 28, 8, 2);
 				break;
 			case BUTTON_LAYOUT_KEYBOARDB:
-				drawMAMEB(68, 28, 10, 1);
+				st->drawMAMEB(68, 28, 10, 1);
 				break;
 			case BUTTON_LAYOUT_DANCEPADB:
-				drawDancepadB(39, 12, 15, 2);
+				st->drawDancepadB(39, 12, 15, 2);
 				break;
 		}
 	}
 
-	obdDumpBuffer(&obd, NULL);
-}*/
+	//obdDumpBuffer(&st->obd, NULL);
+
+	return 0;
+}
+
+
+void I2CDisplayAddon::DisplayState::exit() {}
 
 void I2CDisplayAddon::clearScreen(int render) {
 	obdFill(&obd, 0, render);
@@ -435,102 +464,111 @@ void I2CDisplayAddon::drawDancepadB(int startX, int startY, int buttonSize, int 
 	obdRectangle(&obd, startX + buttonMargin * 2, startY + buttonMargin * 2, startX + buttonSize + buttonMargin * 2, startY + buttonSize + buttonMargin * 2, 1, gamepad->pressedB3()); // Down/Right
 }
 
-void I2CDisplayAddon::setState(State *ptr)
-//void I2CDisplayAddon::setState(SplashState *ptr)
+void I2CDisplayAddon::setState(State* ptr, bool runExit)
 {
-    //state->exit(); // Exit current state
+    if (runExit == 1) state->exit(); // Exit current state
     ptr->enter(this); // Enter/Setup new state
 	state = ptr; // Make new state active
 }
 
-void I2CDisplayAddon::SplashState::enter(I2CDisplayAddon* st)
+
+
+void I2CDisplayAddon::CloseinSplashState::enter(I2CDisplayAddon* st)
 {
-	std::string msgText { "Entered Splash State" };
 	startMils = getMillis();
+	std::string msgText { "Entered Splash State" };
 	st->messageState.send(msgText);
 }
-//void I2CDisplayAddon::drawSplashScreen(int splashMode, int splashSpeed)
-bool I2CDisplayAddon::SplashState::process(I2CDisplayAddon *st)
+
+bool I2CDisplayAddon::CloseinSplashState::process(I2CDisplayAddon *st)
 {
-    const int mils = getMillis();
-	const int milsPast = mils - startMils;
 	st->clearScreen(0);
-    switch (splashMode)
+	counter = counter + st->dt;
+	if (counter < ttl)
 	{
-		case STATICSPLASH: // Default, display static or custom image
-            if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
-                obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
-            } else {
-			    obdDrawSprite(&st->obd, (uint8_t *)splashImage, 128, 64, 16, 0, 0, 1);
-            }
-			break;
-		case CLOSEIN: // Close-in. Animate the GP2040 logo
-			obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milsPast / splashSpeed) - 39, 0), 1);
-			obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milsPast / (splashSpeed * 2)), 44), 1);
-			break;
-        case CLOSEINCUSTOM: // Close-in on custom image or delayed close-in if custom image does not exist
-            if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
-               obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
-            }
-            if (milsPast > 2500) {
-                int milss = milsPast - 2500;
-                obdRectangle(&st->obd, 0, 0, 127, 1 + (milss / splashSpeed), 0, 1);
-                obdRectangle(&st->obd, 0, 63, 127, 62 - (milss / (splashSpeed * 2)), 0, 1);
-                obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milss / splashSpeed) - 39, 0), 1);
-                obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milss / (splashSpeed * 2)), 44), 1);
-            }
-            break;
+		y = 39 * ( counter / ttl);
+		y2 = 20 * ( counter / ttl);
 	}
-	/*
-	st->drawText(0,0, std::to_string(mils));
-	st->drawText(0,1, std::to_string(startMils));
-	st->drawText(0,2, std::to_string(milsPast));
-	st->drawText(0,3, std::to_string(stopMils));
-	*/
 
-	//Message Center Temp Stuff
-	/*
-	//obdScrollBuffer(&st->msgobd,0,0,1,8,1);
-	//obdDumpWindow(&st->msgobd, &st->obd, 0, 0, 0, st->msgy, 32, 12);
-	//obdDumpWindow(&st->msgobd, &st->obd, 0, ++st->msgy, 64, 16, 32, 4);
-	//obdDrawGFX(&st->obd, &st->msgobd, 0, 0, 1, 1, 32, 4, 0);
-	//obdDrawSprite(&st->obd, st->ucMsgBackBuffer, 128, 32, 1, 0, 0, 1);
-	obdCopy(&st->msgobd, 2, st->ucHold);
-	obdDrawSprite(&st->obd, st->ucHold, 128, 32, 16, 0, st->msgy, 1);
-	st->drawText(0,5, std::to_string(st->msgy));
-	st->drawText(0,6, std::to_string(st->msghalt));
-	//++st->msgx;
-	//++st->msgy;
-	if (st->msghalt > 50)
-	{
-		if (st->msgy > 16) st->msgy = 0;
-		++st->msgy;
-		st->msghalt = 0;
-	}
-	++st->msghalt;
-	//if (st->msgy > 16) st->msgy = 0;
+	obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, y - 39, 1);
+	obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, 64 - y2, 1);
 
-	//End it
-	*/
-
-
-	// Process message queue
-	st->messageState.process(st);
-
-	//Drop DT
-	st->drawText(0,0, std::to_string(st->dt));
-
-	obdDumpBuffer(&st->obd, NULL);
-	if (milsPast > stopMils) {
-		st->drawText(0,4, "STOP");
-		st->nextState = &st->splashState; 
+	if (counter > (ttl * 2)) {
+		st->nextState = &st->displayState; 
 		return 1;
 	} else {
 		return 0;
 	}
 }
 
-void I2CDisplayAddon::SplashState::exit() {}
+void I2CDisplayAddon::CloseinSplashState::exit() {
+	delete this;
+}
+
+/*
+void I2CDisplayAddon::StaticSplashState::enter(I2CDisplayAddon* st)
+{
+	startMils = getMillis();
+	std::string msgText { "Entered Splash State" };
+	st->messageState.send(msgText);
+}
+
+bool I2CDisplayAddon::StaticSplashState::process(I2CDisplayAddon *st)
+{
+    const int mils = getMillis();
+	const int milsPast = mils - startMils;
+	st->clearScreen(0);
+
+	if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
+		obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
+	} else {
+		obdDrawSprite(&st->obd, (uint8_t *)splashImage, 128, 64, 16, 0, 0, 1);
+	}
+
+	if (milsPast > stopMils) {
+		st->nextState = &st->displayState; 
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+void I2CDisplayAddon::StaticSplashState::exit() {}
+
+void I2CDisplayAddon::CloseinCustomSplashState::enter(I2CDisplayAddon* st)
+{
+	startMils = getMillis();
+	std::string msgText { "Entered Splash State" };
+	st->messageState.send(msgText);
+}
+
+bool I2CDisplayAddon::CloseinCustomSplashState::process(I2CDisplayAddon *st)
+{
+    const int mils = getMillis();
+	const int milsPast = mils - startMils;
+	st->clearScreen(0);
+
+	if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
+		obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
+	}
+	if (milsPast > 2500) {
+		int milss = milsPast - 2500;
+		obdRectangle(&st->obd, 0, 0, 127, 1 + (milss / splashSpeed), 0, 1);
+		obdRectangle(&st->obd, 0, 63, 127, 62 - (milss / (splashSpeed * 2)), 0, 1);
+		obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milss / splashSpeed) - 39, 0), 1);
+		obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milss / (splashSpeed * 2)), 44), 1);
+	}
+
+	if (milsPast > stopMils) {
+		st->nextState = &st->displayState; 
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+void I2CDisplayAddon::CloseinCustomSplashState::exit() {}
+*/
 
 void I2CDisplayAddon::drawText(int x, int y, std::string text) {
 	obdWriteString(&obd, 0, x, y, (char*)text.c_str(), FONT_6x8, 0, 0);
@@ -639,28 +677,3 @@ void I2CDisplayAddon::MessageState::send(std::string str)
 {
 	queue.push_back(str);
 }
-
-//Message Center Temp Stuff
-	/*
-	//obdScrollBuffer(&st->msgobd,0,0,1,8,1);
-	//obdDumpWindow(&st->msgobd, &st->obd, 0, 0, 0, st->msgy, 32, 12);
-	//obdDumpWindow(&st->msgobd, &st->obd, 0, ++st->msgy, 64, 16, 32, 4);
-	//obdDrawGFX(&st->obd, &st->msgobd, 0, 0, 1, 1, 32, 4, 0);
-	//obdDrawSprite(&st->obd, st->ucMsgBackBuffer, 128, 32, 1, 0, 0, 1);
-	obdCopy(&st->msgobd, 2, st->ucHold);
-	obdDrawSprite(&st->obd, st->ucHold, 128, 32, 16, 0, st->msgy, 1);
-	st->drawText(0,5, std::to_string(st->msgy));
-	st->drawText(0,6, std::to_string(st->msghalt));
-	//++st->msgx;
-	//++st->msgy;
-	if (st->msghalt > 50)
-	{
-		if (st->msgy > 16) st->msgy = 0;
-		++st->msgy;
-		st->msghalt = 0;
-	}
-	++st->msghalt;
-	//if (st->msgy > 16) st->msgy = 0;
-
-	//End it
-	*/

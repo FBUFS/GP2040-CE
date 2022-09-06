@@ -101,20 +101,29 @@ public:
 		virtual bool process(I2CDisplayAddon*) = 0;
     	virtual void exit() = 0;
 	};
-	class SplashState : public State
+	class CloseinSplashState : public State
+	{
+	public:
+		CloseinSplashState() {}
+		void enter(I2CDisplayAddon*);
+		bool process(I2CDisplayAddon*);
+    	void exit();
+	private:
+		int splashSpeed = 90;
+		int startMils;
+		int stopMils = 7500;
+		double counter { 0 };
+		int y { 0 };
+		int y2 { 64 };
+		const double ttl { 2000 }; // x2
+	};
+	class DisplayState : public State
 	{
 	public:
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
     	void exit();
-	//private:
-		int splashMode = 1;// = SPLASH_MODE;
-		int splashSpeed = 90;
-		//OBDISP *obd;
-		int startMils;
-		int stopMils = 7500;
-		//I2CDisplayAddon *parent;
-	} splashState;
+	} displayState;
 	class MessageState : public State
 	{
 	public:
@@ -123,7 +132,6 @@ public:
 		bool process(I2CDisplayAddon*);
 		void exit();
 		void send(std::string);
-		//void pop();
 	private:
 		double counter { 0 };
 		const double height { 11 };
@@ -134,13 +142,12 @@ public:
 		int t { 54 };
 		std::vector<std::string> queue;
 		uint8_t ucBackBuffer[1024];
-		//uint8_t ucHold[1024];
 		OBDISP obd;
 	} messageState;
 
 	State *state;
 	State *nextState;
-	void setState(State*);
+	void setState(State*, bool);
 
 	//Message Center
 	int msgx { 0 };
