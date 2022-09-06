@@ -147,7 +147,8 @@ public:
 		int y { 54 };
 		const int sy { 53 };
 		int t { 54 };
-		std::vector<std::string> queue;
+		//std::vector<std::string> queue;
+		std::vector<uint8_t*> queue;
 		uint8_t ucBackBuffer[1024];
 		OBDISP obd;
 	} messageState; //MessageState needs to always be active and will not be swapped like the other display states.
