@@ -13,6 +13,7 @@
 #include "gpaddon.h"
 #include "gamepad.h"
 #include <vector>
+#include <array>
 
 #ifndef HAS_I2C_DISPLAY
 #define HAS_I2C_DISPLAY -1
@@ -104,6 +105,18 @@ public:
 		virtual bool process(I2CDisplayAddon*) = 0;
     	virtual void exit() = 0;
 	}; //TODO: Can we setup these classes outside of the addon class?
+	class StaticSplashState : public State
+	{
+	public:
+		StaticSplashState() {}
+		~StaticSplashState() {}
+		void enter(I2CDisplayAddon*);
+		bool process(I2CDisplayAddon*);
+    	void exit();
+	private:
+		double counter { 0 };
+		const double ttl { 3750 }; // x2 //TODO: This shouldn't be x2
+	};
 	class CloseinSplashState : public State
 	{
 	public:
@@ -119,7 +132,24 @@ public:
 		double counter { 0 };
 		int y { 0 };
 		int y2 { 64 };
-		const double ttl { 3750 }; // x2 //TODO: This shouldn't be x2
+		const double ttl { 7500 }; 
+	};
+	class CustomcloseinSplashState : public State
+	{
+	public:
+		CustomcloseinSplashState() {}
+		~CustomcloseinSplashState() {}
+		void enter(I2CDisplayAddon*);
+		bool process(I2CDisplayAddon*);
+    	void exit();
+	private:
+		int splashSpeed = 90; //TODO: Remove
+		int startMils; //TODO: Remove
+		int stopMils = 7500; //TODO: Remove
+		double counter { 0 };
+		int y { 0 };
+		int y2 { 0 };
+		const double ttl { 7500 }; 
 	};
 	class DisplayState : public State
 	{
@@ -147,8 +177,10 @@ public:
 		int y { 54 };
 		const int sy { 53 };
 		int t { 54 };
-		//std::vector<std::string> queue;
-		std::vector<uint8_t*> queue;
+		std::vector<std::string> queue;
+		//std::vector<uint8_t*> queue;
+		//std::vector<uint8_t[1024]> queue;
+		//std::vector<std::array<uint8_t*, 1024>> queue;
 		uint8_t ucBackBuffer[1024];
 		OBDISP obd;
 	} messageState; //MessageState needs to always be active and will not be swapped like the other display states.

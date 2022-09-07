@@ -35,16 +35,16 @@ void I2CDisplayAddon::setup() {
 	//State setups
 	
 	// Setup splash mode
-	switch (1) //TODO: Enum broke here. Fix it!
+	switch (SPLASH_MODE) //TODO: Enum broke here. Fix it!
 	{
 		case STATICSPLASH: // Default, display static or custom image
-            //setState(new StaticSplashState(), 0);
+            setState(new StaticSplashState(), 0);
 			break;
 		case CLOSEIN: // Close-in. Animate the GP2040 logo
 			setState(new CloseinSplashState(), 0);
 			break;
         case CLOSEINCUSTOM: // Close-in on custom image or delayed close-in if custom image does not exist
-            //setState(new CloseinCustomSplashState(), 0);
+            setState(new CustomcloseinSplashState(), 0);
             break;
 		default:
 			setState(&displayState, 0); //TODO: This should be new DisplayState()
@@ -488,18 +488,21 @@ void I2CDisplayAddon::CloseinSplashState::enter(I2CDisplayAddon* st)
 
 bool I2CDisplayAddon::CloseinSplashState::process(I2CDisplayAddon *st)
 {
+	//int ot = ttl / 3;
+	//int tt = (ttl / 3) * 2;
+	int oh = ttl / 2;
 	st->clearScreen(0);
 	counter = counter + st->dt;
-	if (counter < ttl)
+	if (counter < oh)
 	{
-		y = 39 * ( counter / ttl);
-		y2 = 20 * ( counter / ttl);
+		y = 39 * ( counter / oh);
+		y2 = 20 * ( counter / oh);
 	}
 
 	obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, y - 39, 1);
 	obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, 64 - y2, 1);
 
-	if (counter > (ttl * 2)) {
+	if (counter > ttl) {
 		st->nextState = &st->displayState; //TODO: This shouldn't be static.
 		return 1;
 	} else {
@@ -511,20 +514,17 @@ void I2CDisplayAddon::CloseinSplashState::exit() {
 	delete this; //TODO: Confirm this is the right way to do this
 }
 
-/*
 //TODO: Finish converting these to objects
 void I2CDisplayAddon::StaticSplashState::enter(I2CDisplayAddon* st)
 {
-	startMils = getMillis();
 	std::string msgText { "Entered Splash State" };
 	st->messageState.send(msgText);
 }
 
 bool I2CDisplayAddon::StaticSplashState::process(I2CDisplayAddon *st)
 {
-    const int mils = getMillis();
-	const int milsPast = mils - startMils;
 	st->clearScreen(0);
+	counter = counter + st->dt;
 
 	if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
 		obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
@@ -532,8 +532,8 @@ bool I2CDisplayAddon::StaticSplashState::process(I2CDisplayAddon *st)
 		obdDrawSprite(&st->obd, (uint8_t *)splashImage, 128, 64, 16, 0, 0, 1);
 	}
 
-	if (milsPast > stopMils) {
-		st->nextState = &st->displayState; 
+	if (counter > (ttl * 2)) {
+		st->nextState = &st->displayState; //TODO: This shouldn't be static.
 		return 1;
 	} else {
 		return 0;
@@ -542,40 +542,40 @@ bool I2CDisplayAddon::StaticSplashState::process(I2CDisplayAddon *st)
 
 void I2CDisplayAddon::StaticSplashState::exit() {}
 
-void I2CDisplayAddon::CloseinCustomSplashState::enter(I2CDisplayAddon* st)
+void I2CDisplayAddon::CustomcloseinSplashState::enter(I2CDisplayAddon* st)
 {
-	startMils = getMillis();
 	std::string msgText { "Entered Splash State" };
 	st->messageState.send(msgText);
 }
 
-bool I2CDisplayAddon::CloseinCustomSplashState::process(I2CDisplayAddon *st)
+bool I2CDisplayAddon::CustomcloseinSplashState::process(I2CDisplayAddon *st)
 {
-    const int mils = getMillis();
-	const int milsPast = mils - startMils;
+	int ot = ttl / 3;
+	int tt = (ttl / 3) * 2;
 	st->clearScreen(0);
+	counter = counter + st->dt;
 
 	if ((sizeof(splashCustom) / sizeof(*splashCustom)) > 0) {
 		obdDrawSprite(&st->obd, (uint8_t *)splashCustom, 128, 64, 16, 0, 0, 1);
 	}
-	if (milsPast > 2500) {
-		int milss = milsPast - 2500;
-		obdRectangle(&st->obd, 0, 0, 127, 1 + (milss / splashSpeed), 0, 1);
-		obdRectangle(&st->obd, 0, 63, 127, 62 - (milss / (splashSpeed * 2)), 0, 1);
-		obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, std::min<int>((milss / splashSpeed) - 39, 0), 1);
-		obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, std::max<int>(64 - (milss / (splashSpeed * 2)), 44), 1);
+	if (counter > ot) {
+		if (y < 39) y = 39 * ( (counter - ot) / ot);
+		if (y2 < 20) y2 = 20 * ( (counter - ot) / ot);
+		obdRectangle(&st->obd, 0, 0, 127, 2 + y, 0, 1);
+		obdRectangle(&st->obd, 0, 63, 127, 62 - y2, 0, 1);
+		obdDrawSprite(&st->obd, (uint8_t *)bootLogoTop, 43, 39, 6, 43, y - 39, 1);
+		obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, 64 - y2, 1);
 	}
-
-	if (milsPast > stopMils) {
-		st->nextState = &st->displayState; 
+	//obdWriteString(&st->obd, 0, 0, 4, (char*)std::to_string(counter).c_str(), FONT_6x8, 0, 0);
+	if (counter > (ttl)) {
+		st->nextState = &st->displayState; //TODO: This shouldn't be static.
 		return 1;
 	} else {
 		return 0;
 	}
 }
 
-void I2CDisplayAddon::CloseinCustomSplashState::exit() {}
-*/
+void I2CDisplayAddon::CustomcloseinSplashState::exit() {}
 
 void I2CDisplayAddon::drawText(int x, int y, std::string text) // TODO: This needs a reference to the obd object
 {
@@ -637,8 +637,8 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 {
 	if (queue.size() > 0)
 	{	
-		//uint8_t bitmap[1024];
-		//std::string text = queue.at(0);
+		uint8_t bitmap[1024];
+		std::string text = queue.at(0);
 		if (counter <= 0)
 		{
 			counter = ttl;
@@ -669,10 +669,10 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 		// Part of this can be moved to send(), we can push a vector of std::array<uint*_t, 1024> and store the bitmaps there.
 		obdDrawLine(&st->obd, 0, sy + y, 127, sy + y, 1, 0); // This
 		obdRectangle(&st->obd, 0, sy + y + 1, 127, 63, 0, 1); // And this need to go to the main buffer as obdDrawSprite will not clear pixels.
-		//obdWriteString(&obd, 0, 0, 0, (char*)text.c_str(), FONT_6x8, 0, 0);
-		//obdCopy(&obd, 2, bitmap);
-		obdDrawSprite(&st->obd, queue.at(0), 128, 32, 16, 0, sy + y + 2, 1);
-		//obdDrawSprite(&st->obd, bitmap, 128, 32, 16, 0, sy + y + 2, 1);
+		obdWriteString(&obd, 0, 0, 0, (char*)text.c_str(), FONT_6x8, 0, 0);
+		obdCopy(&obd, 2, bitmap);
+		//obdDrawSprite(&st->obd, queue.at(0), 128, 32, 16, 0, sy + y + 2, 1);
+		obdDrawSprite(&st->obd, bitmap, 128, 32, 16, 0, sy + y + 2, 1);
 	}
 	return 0;
 }
@@ -683,11 +683,11 @@ void I2CDisplayAddon::MessageState::exit()
 
 void I2CDisplayAddon::MessageState::send(std::string str)
 {
-	uint8_t bitmap[1024];
+	//uint8_t bitmap[1024];
 	// This looks like it's expensive, so don't do this often.
 	// obdDumpWindow doesn't work as described so we're copying the virtual display to a bitmap.
-	obdWriteString(&obd, 0, 0, 0, (char*)str.c_str(), FONT_6x8, 0, 0);
-	obdCopy(&obd, 2, bitmap);
-	queue.push_back(bitmap);
-	//queue.push_back(str);
+	//obdWriteString(&obd, 0, 0, 0, (char*)str.c_str(), FONT_6x8, 0, 0);
+	//obdCopy(&obd, 2, bitmap);
+	//queue.push_back(bitmap);
+	queue.push_back(str);
 }
