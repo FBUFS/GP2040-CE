@@ -94,6 +94,8 @@ public:
 	uint8_t ucBackBuffer[1024];
 	OBDISP obd;
 	std::string statusBar;
+	Gamepad* gamepad;
+	Gamepad* pGamepad;
 	// State Engine
 	//TODO: Clean this up! OMG UGLY!
 	class State
@@ -159,7 +161,33 @@ public:
 		void enter(I2CDisplayAddon*);
 		bool process(I2CDisplayAddon*);
     	void exit();
-	} displayState; //TODO: Does not need to be static. new/delete code needed.
+	};// displayState; //TODO: Does not need to be static. new/delete code needed.
+	class SaverState : public State
+	{
+	public:
+		SaverState() {}
+		~SaverState() {}
+		void enter(I2CDisplayAddon*);
+		bool process(I2CDisplayAddon*);
+    	void exit();
+		class Star
+		{
+		public:
+			Star();
+			~Star() {}
+			bool process(I2CDisplayAddon*);
+			void speedup();
+			float x { 64 };
+			float y { 32 };
+			float angle { 0 };
+			float speed { 0 };
+			float visable { 0 }; // I bet these can be the same thing
+			float life { 0 };    // ^ 
+		};
+	private:
+		std::vector<Star*> queue;
+		const int maxStars { 100 };
+	};
 	class MessageState : public State
 	{
 	public:
@@ -198,6 +226,10 @@ public:
 	//Delta time
 	uint32_t dt { 0 };
 	uint32_t ldt { getMillis() };
+
+	//Timeout timmer
+	int timeoutrst { 5 }; // This needs a serious cleanup
+	float timeout { 0 };   // ^^^^^^^^^^^^^^
 };
 
 #endif

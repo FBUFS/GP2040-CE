@@ -9,6 +9,7 @@
 #include "storagemanager.h"
 #include "pico/stdlib.h"
 #include "bitmaps.h"
+#include <math.h>
 
 bool I2CDisplayAddon::available() {
 	BoardOptions boardOptions = Storage::getInstance().getBoardOptions();
@@ -32,6 +33,9 @@ void I2CDisplayAddon::setup() {
 	obdSetContrast(&obd, 0xFF);
 	obdSetBackBuffer(&obd, ucBackBuffer);
 	clearScreen(1);
+	gamepad = Storage::getInstance().GetGamepad();
+	//pGamepad = Storage::getInstance().GetProcessedGamepad();
+
 	//State setups
 	
 	// Setup splash mode
@@ -47,9 +51,10 @@ void I2CDisplayAddon::setup() {
             setState(new CustomcloseinSplashState(), 0);
             break;
 		default:
-			setState(&displayState, 0); //TODO: This should be new DisplayState()
+			setState(new DisplayState, 0); //TODO: This should be new DisplayState()
 	}
-	
+	//setState(new SaverState(), 0);
+	timeout = timeoutrst; // TODO: Make this better....
 }
 
 void I2CDisplayAddon::process()
@@ -60,13 +65,15 @@ void I2CDisplayAddon::process()
 	ldt = millis;
 	
 	// Process active state, switch if asked to
-	if (state->process(this)) setState(nextState, 1); //TODO: Can we pass a pointer as a result without making messy code?
-	
+	//if (state->process(this)) setState(nextState, 1); //TODO: Can we pass a pointer as a result without making messy code?
+	state->process(this);
+
 	// Process message queue
 	messageState.process(this);
 
-	//Drop DeltaTime
-	drawText(0,1, std::to_string(dt));
+	//Drop DeltaTime and frames (eats frames, looks cool) -- Also a good place for dumping data for debugging
+	//obdWriteString(&obd, 0, 0, 0, (char*)std::to_string(dt).c_str(), FONT_6x8, 0, 0);
+	//obdWriteString(&obd, 0, 0, 1, (char*)std::to_string(1000/dt).c_str(), FONT_6x8, 0, 0);
 
 	obdDumpBuffer(&obd, NULL); //TODO: This needs to by skipped if we're in timeout/power save, but it's easier to have it here.
 
@@ -154,6 +161,11 @@ bool I2CDisplayAddon::DisplayState::process(I2CDisplayAddon* st)
 	}
 
 	//obdDumpBuffer(&st->obd, NULL);
+
+	// Check timeout
+	st->timeout = st->timeout - (st->dt * 0.001);
+	if (st->gamepad->state.buttons != 0 || st->gamepad->state.dpad != 0) st->timeout = st->timeoutrst; //No really, there's gotta be a better way!
+	if (st->timeout <= 0) st->setState(new SaverState, 1);
 
 	return 0; // TODO: There is no state change mechanic here
 }
@@ -503,7 +515,8 @@ bool I2CDisplayAddon::CloseinSplashState::process(I2CDisplayAddon *st)
 	obdDrawSprite(&st->obd, (uint8_t *)bootLogoBottom, 80, 21, 10, 24, 64 - y2, 1);
 
 	if (counter > ttl) {
-		st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		//st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		st->setState(new DisplayState, 1);
 		return 1;
 	} else {
 		return 0;
@@ -533,7 +546,8 @@ bool I2CDisplayAddon::StaticSplashState::process(I2CDisplayAddon *st)
 	}
 
 	if (counter > (ttl * 2)) {
-		st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		//st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		st->setState(new DisplayState, 1);
 		return 1;
 	} else {
 		return 0;
@@ -568,7 +582,8 @@ bool I2CDisplayAddon::CustomcloseinSplashState::process(I2CDisplayAddon *st)
 	}
 	//obdWriteString(&st->obd, 0, 0, 4, (char*)std::to_string(counter).c_str(), FONT_6x8, 0, 0);
 	if (counter > (ttl)) {
-		st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		//st->nextState = &st->displayState; //TODO: This shouldn't be static.
+		st->setState(new DisplayState, 1);
 		return 1;
 	} else {
 		return 0;
@@ -669,6 +684,7 @@ bool I2CDisplayAddon::MessageState::process(I2CDisplayAddon* st)
 		// Part of this can be moved to send(), we can push a vector of std::array<uint*_t, 1024> and store the bitmaps there.
 		obdDrawLine(&st->obd, 0, sy + y, 127, sy + y, 1, 0); // This
 		obdRectangle(&st->obd, 0, sy + y + 1, 127, 63, 0, 1); // And this need to go to the main buffer as obdDrawSprite will not clear pixels.
+		obdFill(&obd, 0, 0);
 		obdWriteString(&obd, 0, 0, 0, (char*)text.c_str(), FONT_6x8, 0, 0);
 		obdCopy(&obd, 2, bitmap);
 		//obdDrawSprite(&st->obd, queue.at(0), 128, 32, 16, 0, sy + y + 2, 1);
@@ -690,4 +706,71 @@ void I2CDisplayAddon::MessageState::send(std::string str)
 	//obdCopy(&obd, 2, bitmap);
 	//queue.push_back(bitmap);
 	queue.push_back(str);
+}
+
+void I2CDisplayAddon::SaverState::enter(I2CDisplayAddon* st)
+{
+	std::string msgText { "Entered Saver State" };
+	st->messageState.send(msgText);
+	for(int i { 0 }; i < maxStars; ++i)
+	{
+		queue.push_back(new Star());
+		queue[i-1]->speedup();
+	}
+}
+bool I2CDisplayAddon::SaverState::process(I2CDisplayAddon* st)
+{
+	st->clearScreen(0);
+	for (int i = queue.size() -1; i>= 0; --i)
+	{
+		if (queue[i]->process(st))
+		{
+			delete queue[i];
+			queue.erase(queue.begin() + i);
+		}
+	}
+	if (queue.size() < maxStars) queue.push_back(new Star());
+	if (st->gamepad->state.buttons != 0 || st->gamepad->state.dpad != 0) st->setState(new DisplayState, 1);
+}
+void I2CDisplayAddon::SaverState::exit()
+{
+
+}
+
+I2CDisplayAddon::SaverState::Star::Star()
+{ //(MAX * MIN) * ((TYPE)rand() /(TYPE)RAND_MAX) + 0 // Random enough
+	angle = 6.283 * ((float)rand() / (float)RAND_MAX);
+	speed = 30 * ((float)rand() / (float)RAND_MAX);
+	if (speed > 20) visable = 1;
+	else visable = (30 - speed);
+	//if (speed >= 25) visable = 2 * ((float)rand() / (float)RAND_MAX);       // This needs inprovement.
+	//else visable = (25 * ((float)rand() / (float)RAND_MAX)) - (50 - speed); // ^    ..... :(
+}
+
+void I2CDisplayAddon::SaverState::Star::speedup()
+{
+	life = life + 30 * ((float)rand() / (float)RAND_MAX);
+	x += (speed * 30 * ((float)rand() / (float)RAND_MAX)) * cos(angle);
+	y += (speed * 30 * ((float)rand() / (float)RAND_MAX)) * sin(angle);
+}
+
+bool I2CDisplayAddon::SaverState::Star::process(I2CDisplayAddon* st)
+{
+	if (x > 127 || y > 64 || x <= 0 || y <= 0)
+	{
+		delete this;
+		return 1;
+	}
+	else
+	{
+		float ds = st->dt * 0.001; // heh
+		life = life + (speed * ds);
+		x += (speed * ds) * cos(angle);
+		y += (speed * ds) * sin(angle);
+		if (life > visable) obdSetPixel(&st->obd, x, y, 1, 0);
+		//obdWriteString(&st->obd, 0, 0, 3, (char*)std::to_string(speed).c_str(), FONT_6x8, 0, 0);
+		//obdWriteString(&st->obd, 0, 0, 4, (char*)std::to_string(visable).c_str(), FONT_6x8, 0, 0);
+		//obdWriteString(&st->obd, 0, 0, 5, (char*)std::to_string(life).c_str(), FONT_6x8, 0, 0);
+		return 0;
+	}
 }
